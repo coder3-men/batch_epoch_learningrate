@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중1 머신러닝 실험실</title>
+    <!-- Tailwind CSS (스타일링) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (그래프) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- TensorFlow.js (머신러닝) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4F46E5;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- 헤더 -->
+    <header class="bg-indigo-600 text-white p-6 text-center shadow-lg">
+        <h1 class="text-3xl font-bold mb-2">🧪 머신러닝 성적 예측 실험실</h1>
+        <p class="text-indigo-100">"공부를 얼마나 하면 몇 점을 받을까?" AI에게 예측하는 법을 가르쳐보세요!</p>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 flex flex-col lg:flex-row gap-6 mt-4">
+        
+        <!-- 왼쪽: 컨트롤 패널 -->
+        <section class="lg:w-1/3 bg-white p-6 rounded-2xl shadow-md border border-slate-200">
+            <h2 class="text-xl font-bold mb-6 flex items-center gap-2">
+                <span>🎛️</span> 학습 설정 (하이퍼파라미터)
+            </h2>
+
+            <!-- 1. 에포크 (Epochs) -->
+            <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                    <label class="font-bold text-slate-700">1. 에포크 (Epochs)</label>
+                    <span id="val-epochs" class="text-indigo-600 font-bold">50회</span>
+                </div>
+                <input type="range" id="epochs" min="10" max="200" step="10" value="50" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                <p class="text-xs text-slate-500 mt-2 bg-slate-100 p-2 rounded">
+                    📖 <strong>문제집을 몇 번 반복해서 볼까요?</strong><br>
+                    반복 횟수가 많을수록 정확해지지만, 너무 많으면 답을 외워버릴 수도 있어요(과적합).
+                </p>
+            </div>
+
+            <!-- 2. 배치 크기 (Batch Size) -->
+            <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                    <label class="font-bold text-slate-700">2. 배치 크기 (Batch Size)</label>
+                    <span id="val-batch" class="text-indigo-600 font-bold">16명</span>
+                </div>
+                <input type="range" id="batchSize" min="4" max="64" step="4" value="16" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                <p class="text-xs text-slate-500 mt-2 bg-slate-100 p-2 rounded">
+                    📦 <strong>한 번에 몇 명의 학생 데이터를 확인할까요?</strong><br>
+                    조금씩 자주 확인하면 학습 방향을 빨리 고치고, 많이씩 확인하면 안정적으로 배웁니다.
+                </p>
+            </div>
+
+            <!-- 3. 학습률 (Learning Rate) -->
+            <div class="mb-8">
+                <div class="flex justify-between mb-2">
+                    <label class="font-bold text-slate-700">3. 학습률 (Learning Rate)</label>
+                    <span id="val-lr" class="text-indigo-600 font-bold">0.1</span>
+                </div>
+                <input type="range" id="learningRate" min="0.001" max="0.5" step="0.001" value="0.1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                <p class="text-xs text-slate-500 mt-2 bg-slate-100 p-2 rounded">
+                    🏃 <strong>오차를 발견했을 때 얼마나 크게 고칠까요?</strong><br>
+                    너무 작으면 학습이 느리고, 너무 크면 오히려 엉뚱한 값으로 튈 수 있어요.
+                </p>
+            </div>
+
+            <button id="trainBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all transform hover:scale-105 shadow-lg flex justify-center items-center gap-2">
+                <span>🚀 AI 학습 시작하기</span>
+            </button>
+            <div id="status" class="mt-4 text-center text-sm font-semibold text-slate-400">준비 완료</div>
+        </section>
+
+        <!-- 오른쪽: 시각화 -->
+        <section class="lg:w-2/3 flex flex-col gap-4">
+            <!-- 메인 그래프 -->
+            <div class="bg-white p-4 rounded-2xl shadow-md border border-slate-200 relative">
+                <h3 class="text-lg font-bold text-slate-700 mb-2">📊 공부 시간 vs 성적 그래프</h3>
+                <div class="relative h-80 w-full">
+                    <canvas id="mainChart"></canvas>
+                </div>
+                <div class="absolute top-4 right-4 bg-white/80 p-2 rounded shadow text-xs">
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-blue-500"></span> 실제 학생 데이터</div>
+                    <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-red-500"></span> AI의 예측</div>
+                </div>
+            </div>
+
+            <!-- 손실(Loss) 그래프 -->
+            <div class="bg-white p-4 rounded-2xl shadow-md border border-slate-200">
+                <h3 class="text-lg font-bold text-slate-700 mb-2">📉 예측 오차(Loss) 감소 그래프</h3>
+                <p class="text-xs text-slate-500 mb-2">이 선이 바닥으로 내려갈수록 AI의 예측이 정확해지는 중입니다!</p>
+                <div class="relative h-40 w-full">
+                    <canvas id="lossChart"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center p-8 text-slate-500 text-sm">
+        만든이: AI 선생님 | 중학교 정보 교과용 자료
+    </footer>
+
+    <script>
+        // --- 1. 데이터 생성 (공부 시간 vs 성적) ---
+        // 0~10시간 공부하면 성적이 오르는 비선형(곡선) 관계 생성
+        const generateData = (numPoints) => {
+            const xs = [];
+            const ys = [];
+            for (let i = 0; i < numPoints; i++) {
+                // 공부 시간: 0 ~ 10시간 (랜덤)
+                const studyHours = Math.random() * 10;
+                
+                // 성적 계산 공식: 100 - (10 - 시간)^2 + 노이즈
+                // (10시간 공부하면 100점에 가깝고, 0시간이면 0점에 가까운 곡선)
+                let score = 100 - Math.pow(10 - studyHours, 2);
+                
+                // 현실감을 위한 노이즈 추가 (±10점 정도의 개인차)
+                score += (Math.random() * 20 - 10);
+                
+                // 점수는 0~100점 사이로 제한
+                score = Math.max(0, Math.min(100, score));
+
+                xs.push(studyHours);
+                ys.push(score);
+            }
+            return { xs, ys };
+        };
+
+        const dataSize = 100;
+        const { xs: rawXs, ys: rawYs } = generateData(dataSize);
+
+        // --- 2. Chart.js 설정 ---
+        const ctxMain = document.getElementById('mainChart').getContext('2d');
+        const ctxLoss = document.getElementById('lossChart').getContext('2d');
+
+        // 메인 그래프 (산점도 + 선 그래프)
+        const mainChart = new Chart(ctxMain, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    {
+                        label: '학생 데이터',
+                        data: rawXs.map((x, i) => ({ x: x, y: rawYs[i] })),
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)', // 파란 점
+                        pointRadius: 4
+                    },
+                    {
+                        label: 'AI의 성적 예측',
+                        type: 'line',
+                        data: [], // 초기엔 비어있음
+                        borderColor: 'rgba(239, 68, 68, 1)', // 빨간 선
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        fill: false,
+                        tension: 0.3 // 곡선을 부드럽게
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { 
+                        min: 0, max: 10.5, 
+                        title: { display: true, text: '공부 시간 (시간)', font: {weight: 'bold'} } 
+                    },
+                    y: { 
+                        min: 0, max: 105, 
+                        title: { display: true, text: '시험 점수 (점)', font: {weight: 'bold'} } 
+                    }
+                }
+            }
+        });
+
+        // 손실(Loss) 그래프
+        const lossChart = new Chart(ctxLoss, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '오차(Loss)',
+                    data: [],
+                    borderColor: '#10B981', // 초록색
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    x: { display: false },
+                    y: { beginAtZero: true }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        // --- 3. UI 업데이트 로직 ---
+        const epochSlider = document.getElementById('epochs');
+        const batchSlider = document.getElementById('batchSize');
+        const lrSlider = document.getElementById('learningRate');
+        
+        const updateLabels = () => {
+            document.getElementById('val-epochs').innerText = epochSlider.value + "회";
+            document.getElementById('val-batch').innerText = batchSlider.value + "개";
+            document.getElementById('val-lr').innerText = lrSlider.value;
+        };
+
+        [epochSlider, batchSlider, lrSlider].forEach(input => {
+            input.addEventListener('input', updateLabels);
+        });
+
+        // --- 4. TensorFlow.js 모델 및 학습 ---
+        let model;
+        let isTraining = false;
+
+        async function trainModel() {
+            if (isTraining) return;
+            isTraining = true;
+            
+            const trainBtn = document.getElementById('trainBtn');
+            const statusDiv = document.getElementById('status');
+            
+            trainBtn.disabled = true;
+            trainBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            trainBtn.innerHTML = `<span>⏳ AI가 공부법을 배우는 중...</span>`;
+            statusDiv.innerText = "데이터를 분석하고 있어요...";
+            statusDiv.className = "mt-4 text-center text-sm font-bold text-indigo-600 animate-pulse";
+
+            // 1. 값 가져오기
+            const epochs = parseInt(epochSlider.value);
+            const batchSize = parseInt(batchSlider.value);
+            const learningRate = parseFloat(lrSlider.value);
+
+            // 2. 모델 생성
+            model = tf.sequential();
+            // 입력: 1개 (공부 시간) -> 은닉층 (8개 뉴런) -> 은닉층 (8개 뉴런) -> 출력: 1개 (예상 점수)
+            model.add(tf.layers.dense({ units: 8, inputShape: [1], activation: 'relu' })); 
+            model.add(tf.layers.dense({ units: 8, activation: 'relu' }));
+            model.add(tf.layers.dense({ units: 1 }));
+
+            // 3. 모델 컴파일
+            model.compile({
+                optimizer: tf.train.adam(learningRate),
+                loss: 'meanSquaredError'
+            });
+
+            // ★ 데이터 정규화 (Normalization) ★
+            // 머신러닝은 0~1 사이의 작은 숫자를 좋아합니다. 
+            // 공부시간(0~10)은 10으로, 점수(0~100)는 100으로 나눠서 작게 만듭니다.
+            const normXs = rawXs.map(x => x / 10);
+            const normYs = rawYs.map(y => y / 100);
+
+            const xsTensor = tf.tensor2d(normXs, [normXs.length, 1]);
+            const ysTensor = tf.tensor2d(normYs, [normYs.length, 1]);
+
+            // 차트 초기화
+            lossChart.data.labels = [];
+            lossChart.data.datasets[0].data = [];
+            lossChart.update();
+
+            // 예측 선을 그리기 위한 X값들 (0시간 ~ 10시간을 100개로 쪼갬)
+            const predictXsRaw = [];
+            for(let i=0; i<=100; i++) predictXsRaw.push(i/10); // 0.0, 0.1 ... 10.0
+            const predictXsTensor = tf.tensor2d(predictXsRaw.map(x => x / 10), [101, 1]); // 정규화해서 텐서로
+
+            // 4. 학습 시작
+            await model.fit(xsTensor, ysTensor, {
+                epochs: epochs,
+                batchSize: batchSize,
+                shuffle: true,
+                callbacks: {
+                    onEpochEnd: async (epoch, logs) => {
+                        // 오차 그래프 업데이트
+                        lossChart.data.labels.push(epoch);
+                        lossChart.data.datasets[0].data.push(logs.loss);
+                        lossChart.update();
+
+                        // 예측 선 그리기
+                        const preds = model.predict(predictXsTensor);
+                        const predDataNorm = await preds.data(); // 0~1 사이 값으로 나옴
+                        preds.dispose();
+
+                        // 다시 원래 점수(0~100점)로 되돌려서 그래프에 그리기
+                        const chartData = [];
+                        for(let i=0; i<=100; i++) {
+                            const xVal = predictXsRaw[i]; // 시간
+                            const yVal = predDataNorm[i] * 100; // 정규화된 값을 100 곱해서 복구
+                            chartData.push({ x: xVal, y: yVal });
+                        }
+                        
+                        mainChart.data.datasets[1].data = chartData;
+                        mainChart.update();
+
+                        statusDiv.innerText = `${epoch + 1}/${epochs}번 학습 중... (오차: ${logs.loss.toFixed(4)})`;
+                        
+                        await tf.nextFrame();
+                    }
+                }
+            });
+
+            // 학습 종료 후 정리
+            xsTensor.dispose();
+            ysTensor.dispose();
+            predictXsTensor.dispose();
+
+            isTraining = false;
+            trainBtn.disabled = false;
+            trainBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            trainBtn.innerHTML = `<span>🚀 AI 학습 시작하기</span>`;
+            statusDiv.innerText = "학습 완료! 빨간 선이 파란 점들(학생 데이터)을 잘 따라가나요?";
+            statusDiv.className = "mt-4 text-center text-sm font-bold text-green-600";
+        }
+
+        document.getElementById('trainBtn').addEventListener('click', trainModel);
+    </script>
+</body>
+</html>
